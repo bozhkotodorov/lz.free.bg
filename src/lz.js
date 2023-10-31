@@ -5,6 +5,7 @@ var repsDMR = 0;
 var repsYSF = 0;
 var repsParrot = 0;
 var reps = [];
+var fuseSearch;
 
 const repeaters = new Repeaters({
   warnings: true,
@@ -14,17 +15,26 @@ const repeaters = new Repeaters({
 repeaters.loadData().then(() => {
   reps = repeaters.get();
   if (reps.length) {
-    reps.forEach(r => addRepeater(r));
+    reps.forEach((r) => addRepeater(r));
     addBottomBox();
     if (callsign) searchNode(callsign);
     if (coords) {
       coords = coords.split(",");
-      var position = {coords: {
-        latitude: parseFloat(coords[0]),
-        longitude: parseFloat(coords[1])
-      }};
+      var position = {
+        coords: {
+          latitude: parseFloat(coords[0]),
+          longitude: parseFloat(coords[1]),
+        },
+      };
       handlePosition(position, false);
     }
+    fuseSearch = new Fuse(reps, {
+      keys: ["callsign", "loc", "rx", "tx"],
+      shouldSort: true,
+      threshold: 0.0,
+      location: 0,
+      distance: 0,
+    });
   }
   doAlert();
 });
@@ -35,36 +45,67 @@ var addRepeater = function (r) {
     '<div style="float: left">' +
     '<a href="#" class="remove-for-sidebar" title="отвори в странична лента" onclick="setSidebar();"><i class="fa-solid fa-arrow-left "></i></a>' +
     "</div>" +
-    '<h2><a href = "?callsign=' + r.callsign + '" title = "вземи директен линк за този репитър" target = "_blank" > ' + r.callsign + '</a></h2 > ' +
+    '<h2><a href = "?callsign=' +
+    r.callsign +
+    '" title = "вземи директен линк за този репитър" target = "_blank" > ' +
+    r.callsign +
+    "</a></h2 > " +
     '<div class="title-links">' +
-    '<b>' + r.location + '</b>' +
-    '</div><hr>' +
-
-    'RX: <b>' + r.rx + '</b> MHz<br>' +
-    'TX: <b>' + r.tx + '</b> MHz<br>' +
-    (r.tone ? ('Тон: <b>' + r.tone + '</b><br>') : '') +
-    (r.channel ? 'Канал: <b>' + r.channel + '</b><br>' : '') +
-    'Режим на работа: <b>' + r.modesString + '</b><br>' +
-    'Отговорник: <b>' + r.keeper + '</b><br>' +
-    (r.altitude ? 'Надморска височина: <b>' + r.altitude + '</b>м<br>' : "") +
-    'QTH: <b>' + r.qth + '</b><br>' +
-    (r.echolink ? ('Echolink #: <b>' + r.echolink + '</b><br>') : '') +
-    (r.zello ? ('Zello: <b>' + r.zello + '</b><br>') : '') +
-    '<hr>' +
+    "<b>" +
+    r.location +
+    "</b>" +
+    "</div><hr>" +
+    "RX: <b>" +
+    r.rx +
+    "</b> MHz<br>" +
+    "TX: <b>" +
+    r.tx +
+    "</b> MHz<br>" +
+    (r.tone ? "Тон: <b>" + r.tone + "</b><br>" : "") +
+    (r.channel ? "Канал: <b>" + r.channel + "</b><br>" : "") +
+    "Режим на работа: <b>" +
+    r.modesString +
+    "</b><br>" +
+    "Отговорник: <b>" +
+    r.keeper +
+    "</b><br>" +
+    (r.altitude ? "Надморска височина: <b>" + r.altitude + "</b>м<br>" : "") +
+    "QTH: <b>" +
+    r.qth +
+    "</b><br>" +
+    (r.echolink ? "Echolink #: <b>" + r.echolink + "</b><br>" : "") +
+    (r.zello ? "Zello: <b>" + r.zello + "</b><br>" : "") +
+    "<hr>" +
     r.infoHTML +
-    '</div>';
+    "</div>";
 
   var marker = L.marker(new L.LatLng(r.lat, r.lon), {
     title: r.callsign + " - " + r.loc,
     icon: L.divIcon({
-      html: '<i class="fa-solid fa-arrow-up pointer"></i>' +
-        '<center>' +
-        '<span class="name-' + r.band + '">' + r.callsign + '</span><br>' +
-        '</center><hr class="hr-' + r.band + '">' +
-        r.modesArray.map(m => '<span class="modes-text color-rep-' + m + '">' + m.toUpperCase() + '</span>').join('<br>'),
-      className: 'modes',
+      html:
+        '<i class="fa-solid fa-arrow-up pointer"></i>' +
+        "<center>" +
+        '<span class="name-' +
+        r.band +
+        '">' +
+        r.callsign +
+        "</span><br>" +
+        '</center><hr class="hr-' +
+        r.band +
+        '">' +
+        r.modesArray
+          .map(
+            (m) =>
+              '<span class="modes-text color-rep-' +
+              m +
+              '">' +
+              m.toUpperCase() +
+              "</span>"
+          )
+          .join("<br>"),
+      className: "modes",
       // iconSize: new L.Point(256, 256)
-    })
+    }),
   });
   marker.bindPopup(title, {
     // autoClose: false,
@@ -75,128 +116,145 @@ var addRepeater = function (r) {
   marker.name = r.callsign;
   markers.addLayer(marker);
   repsAll += 1;
-  if (r.modesArray.includes('analog')) repsFM += 1;
-  if (r.modesArray.includes('dstar')) repsDStar += 1;
-  if (r.modesArray.includes('dmr')) repsDMR += 1;
-  if (r.modesArray.includes('fusion')) repsYSF += 1;
-  if (r.modesArray.includes('parrot')) repsParrot += 1;
-}
+  if (r.modesArray.includes("analog")) repsFM += 1;
+  if (r.modesArray.includes("dstar")) repsDStar += 1;
+  if (r.modesArray.includes("dmr")) repsDMR += 1;
+  if (r.modesArray.includes("fusion")) repsYSF += 1;
+  if (r.modesArray.includes("parrot")) repsParrot += 1;
+};
 
 var addBottomBox = function () {
   // create bottom-right box with info
   var box = L.control({
-    position: 'bottomright'
+    position: "bottomright",
   });
   box.onAdd = function (map) {
-    var div = L.DomUtil.create('div', box);
-    L.DomUtil.addClass(div, 'bottom-box');
-    div.innerHTML = '<table><tr><th colspan="3" class="color-rep-all">Ретранслатори</th></tr>' +
-      '<tr>' +
+    var div = L.DomUtil.create("div", box);
+    L.DomUtil.addClass(div, "bottom-box");
+    div.innerHTML =
+      '<table><tr><th colspan="3" class="color-rep-all">Ретранслатори</th></tr>' +
+      "<tr>" +
       '<td class="color-rep-all">Всички</td>' +
-      '<td align="center"><b class="color-rep-all">' + repsAll + '</b></td>' +
+      '<td align="center"><b class="color-rep-all">' +
+      repsAll +
+      "</b></td>" +
       '<td align="right">' +
       '<button type="button" title="Изтегли CSV формат съвместим с CHIRP" onClick="downloadCSV(\'all\');" class="csv-button all">' +
       '<i class="fa-solid fa-download"></i>' +
-      '</button>' +
-      '</td>' +
-      '</tr>' +
-      '<tr>' +
+      "</button>" +
+      "</td>" +
+      "</tr>" +
+      "<tr>" +
       '<td class="color-rep-analog">Analog/FM</td>' +
-      '<td align="center"><b class="color-rep-analog">' + repsFM + '</b></td>' +
+      '<td align="center"><b class="color-rep-analog">' +
+      repsFM +
+      "</b></td>" +
       '<td align="right">' +
       '<button type="button" title="Изтегли CSV формат съвместим с CHIRP" onClick="downloadCSV(\'analog\');" class="csv-button analog">' +
       '<i class="fa-solid fa-download"></i>' +
-      '</button>' +
-      '</td>' +
-      '</tr>' +
-      '<tr>' +
+      "</button>" +
+      "</td>" +
+      "</tr>" +
+      "<tr>" +
       '<td class="color-rep-dstar">D-Star</td>' +
-      '<td align="center"><b class="color-rep-dstar">' + repsDStar + '</b></td>' +
+      '<td align="center"><b class="color-rep-dstar">' +
+      repsDStar +
+      "</b></td>" +
       '<td align="right">' +
       '<button type="button" title="Изтегли CSV формат съвместим с CHIRP" onClick="downloadCSV(\'dstar\');" class="csv-button dstar">' +
       '<i class="fa-solid fa-download"></i>' +
-      '</button>' +
-      '</td>' +
-      '</tr>' +
-      '<tr>' +
+      "</button>" +
+      "</td>" +
+      "</tr>" +
+      "<tr>" +
       '<td class="color-rep-dmr">DMR</td>' +
-      '<td align="center"><b class="color-rep-dmr">' + repsDMR + '</b></td>' +
+      '<td align="center"><b class="color-rep-dmr">' +
+      repsDMR +
+      "</b></td>" +
       '<td align="right">' +
       '<button type="button" title="Изтегли CSV формат съвместим с CHIRP" onClick="downloadCSV(\'dmr\');" class="csv-button dmr">' +
       '<i class="fa-solid fa-download"></i>' +
-      '</button>' +
-      '</td>' +
-      '</tr>' +
-      '<tr>' +
+      "</button>" +
+      "</td>" +
+      "</tr>" +
+      "<tr>" +
       '<td class="color-rep-fusion">Fusion</td>' +
-      '<td align="center"><b class="color-rep-fusion">' + repsYSF + '</b></td>' +
+      '<td align="center"><b class="color-rep-fusion">' +
+      repsYSF +
+      "</b></td>" +
       '<td align="right">' +
       '<button type="button" title="Изтегли CSV формат съвместим с CHIRP" onClick="downloadCSV(\'fusion\');" class="csv-button fusion">' +
       '<i class="fa-solid fa-download"></i>' +
-      '</button>' +
-      '</td>' +
-      '</tr>' +
-      '<tr>' +
+      "</button>" +
+      "</td>" +
+      "</tr>" +
+      "<tr>" +
       '<td class="color-rep-parrot">Parrot</td>' +
-      '<td align="center"><b class="color-rep-parrot">' + repsParrot + '</b></td>' +
+      '<td align="center"><b class="color-rep-parrot">' +
+      repsParrot +
+      "</b></td>" +
       '<td align="right">' +
       '<button type="button" title="Изтегли CSV формат съвместим с CHIRP" onClick="downloadCSV(\'parrot\');" class="csv-button parrot">' +
       '<i class="fa-solid fa-download"></i>' +
-      '</button>' +
-      '</td>' +
-      '</tr>' +
-      '</table>';
+      "</button>" +
+      "</td>" +
+      "</tr>" +
+      "</table>";
     return div;
   };
   box.addTo(map);
-
-}
+};
 
 function doAlert(force = false) {
-  if (location.protocol == 'https:') {
-    var a = localStorage.getItem('lastDBUpdate') || '';
+  if (location.protocol == "https:") {
+    var a = localStorage.getItem("lastDBUpdate") || "";
 
     if (a !== repeaters.lastUpdate() || force) {
-
-
       var lastModified = new Date(document.lastModified);
       lastModified =
-        lastModified.getFullYear() + '-' +
-        ('0' + (lastModified.getMonth() + 1)).slice(-2) + '-' +
-        ('0' + lastModified.getDate()).slice(-2);
+        lastModified.getFullYear() +
+        "-" +
+        ("0" + (lastModified.getMonth() + 1)).slice(-2) +
+        "-" +
+        ("0" + lastModified.getDate()).slice(-2);
 
-
-      var content = '';
+      var content = "";
       content += "Последно обновяване на сайта: " + lastModified + "<br>";
-      content += "Последно обновяване на базата: " + repeaters.lastUpdate() + "<br>";
+      content +=
+        "Последно обновяване на базата: " + repeaters.lastUpdate() + "<br>";
       content += "Картата се поддържа и разработва от Димитър, LZ2DMV.<br>";
-      content += "За контакт и актуализиране на информация: m (маймунка) mitko (точка) xyz " +
+      content +=
+        "За контакт и актуализиране на информация: m (маймунка) mitko (точка) xyz " +
         "или <a href='https://0xaf.org/about/' target='_blank'>LZ2SLL</a>.<br>";
-      content += "JSON база с ретранслаторите: <a href='https://varna.radio/reps.json' target='_blank'>https://varna.radio/reps.json</a> (<a href='https://varna.radio/reps.js' target='_blank'>JS Библиотека</a>).<br><br>";
-      content += "Забележка: Приемната (RX) и предавателната (TX) честота на всички ретранслатори са посочени от перспективата на вашето радио, а не от тази на ретранслатора!<br><br>";
+      content +=
+        "JSON база с ретранслаторите: <a href='https://varna.radio/reps.json' target='_blank'>https://varna.radio/reps.json</a> (<a href='https://varna.radio/reps.js' target='_blank'>JS Библиотека</a>).<br><br>";
+      content +=
+        "Забележка: Приемната (RX) и предавателната (TX) честота на всички ретранслатори са посочени от перспективата на вашето радио, а не от тази на ретранслатора!<br><br>";
       content += "Последни промени в базата с репитри:<br>";
       content += "<textarea style='width: 99%; height: 10rem;'>";
       for (const [date, arr] of Object.entries(repeaters.changelog())) {
         content += date + ":\r\n";
-        arr.forEach(l => {
+        arr.forEach((l) => {
           content += "    - " + l + "\r\n";
         });
         content += "\r\n";
       }
       content += "</textarea>";
 
-      var modal = L.control.window(map, {
-        title: 'Добре дошли!',
-        content: content,
-      }).show()
+      var modal = L.control
+        .window(map, {
+          title: "Добре дошли!",
+          content: content,
+        })
+        .show();
 
-      localStorage.setItem('lastDBUpdate', repeaters.lastUpdate());
+      localStorage.setItem("lastDBUpdate", repeaters.lastUpdate());
     }
   }
 }
 
 function downloadCSV(mode) {
-  var fn = 'repeaters_' + mode + ".csv";
+  var fn = "repeaters_" + mode + ".csv";
 
   function exportFile(fileName, rawData, opts = {}) {
     function clean(link) {
@@ -208,32 +266,34 @@ function downloadCSV(mode) {
       link.remove();
     }
 
-    const {
-      mimeType,
-      byteOrderMark,
-      encoding
-    } = typeof opts === 'string' ? {
-      mimeType: opts
-    } : opts;
+    const { mimeType, byteOrderMark, encoding } =
+      typeof opts === "string"
+        ? {
+            mimeType: opts,
+          }
+        : opts;
 
-    const data = encoding !== void 0 ? (new TextEncoder(encoding)).encode([rawData]) : rawData;
+    const data =
+      encoding !== void 0
+        ? new TextEncoder(encoding).encode([rawData])
+        : rawData;
     const blobData = byteOrderMark !== void 0 ? [byteOrderMark, data] : [data];
     const blob = new Blob(blobData, {
-      type: mimeType || 'application/octet-stream'
+      type: mimeType || "application/octet-stream",
     });
-    const link = document.createElement('a');
+    const link = document.createElement("a");
 
     link.href = window.URL.createObjectURL(blob);
-    link.setAttribute('download', fileName);
+    link.setAttribute("download", fileName);
 
     // Check for "download" attribute support;
     // If not supported, open this in new window
-    if (typeof link.download === 'undefined') {
-      link.setAttribute('target', '_blank');
+    if (typeof link.download === "undefined") {
+      link.setAttribute("target", "_blank");
     }
 
-    link.classList.add('hidden');
-    link.style.position = 'fixed'; // avoid scrolling to bottom
+    link.classList.add("hidden");
+    link.style.position = "fixed"; // avoid scrolling to bottom
     document.body.appendChild(link);
 
     try {
@@ -247,23 +307,29 @@ function downloadCSV(mode) {
   }
 
   function filterRepeaters(reps) {
-    var filtered = JSON.parse(JSON.stringify(reps)).filter((r) => { // deep clone of array
+    var filtered = JSON.parse(JSON.stringify(reps)).filter((r) => {
+      // deep clone of array
       var show = false;
       delete r.coverage;
-      r.duplex = r.tx - r.rx < 0 ? "-" : r.tx - r.rx > 0 ? "+" : '';
+      r.duplex = r.tx - r.rx < 0 ? "-" : r.tx - r.rx > 0 ? "+" : "";
       r.offset = Math.abs(r.tx - r.rx);
       if (Math.abs(r.tx - r.rx) > 8) {
         r.duplex = "split";
         r.offset = r.tx;
       }
       r.csvTone = r.tone || 79.7;
-      r.csvMode = r.mode.analog || r.mode.parrot ? 'FM' : r.mode.dmr ? 'DMR' : 'Auto';
-      r.comment = (r.channel !== 'N/A' ? 'Chan: ' + r.channel + '\r\n' : '') +
-        'Modes: ' + r.modesArray.join("+") + "\r\n" +
-        r.location + "\r\n" +
+      r.csvMode =
+        r.mode.analog || r.mode.parrot ? "FM" : r.mode.dmr ? "DMR" : "Auto";
+      r.comment =
+        (r.channel !== "N/A" ? "Chan: " + r.channel + "\r\n" : "") +
+        "Modes: " +
+        r.modesArray.join("+") +
+        "\r\n" +
+        r.location +
+        "\r\n" +
         r.infoString;
-      if (mode === 'all' || r.mode[mode]) show = true;
-      if (r.mode.ssb && m == 'analog') show = true;
+      if (mode === "all" || r.mode[mode]) show = true;
+      if (r.mode.ssb && m == "analog") show = true;
       return show;
     });
 
@@ -277,124 +343,141 @@ function downloadCSV(mode) {
 
   var output = csv_stringify_sync.stringify(filterRepeaters(reps), {
     header: true,
-    columns: [{
-        key: 'index',
-        header: 'Location'
+    columns: [
+      {
+        key: "index",
+        header: "Location",
       },
       {
-        key: 'callsign',
-        header: 'Name'
+        key: "callsign",
+        header: "Name",
       },
       {
-        key: 'rx',
-        header: 'Frequency'
+        key: "rx",
+        header: "Frequency",
       },
       {
         key: "duplex",
-        header: "Duplex"
+        header: "Duplex",
       },
       {
         key: "offset",
-        header: "Offset"
+        header: "Offset",
       },
       {
         key: "tone",
-        header: "Tone"
+        header: "Tone",
       },
       {
         key: "csvTone",
-        header: "rToneFreq"
+        header: "rToneFreq",
       },
       {
         key: "csvTone",
-        header: "cToneFreq"
+        header: "cToneFreq",
       },
       {
         key: "csvMode",
-        header: "Mode"
+        header: "Mode",
       },
       {
         key: "comment",
-        header: "Comment"
+        header: "Comment",
       },
     ],
     cast: {
       object: (val, ctx) => {
-        if (ctx.column == 'mode') {
+        if (ctx.column == "mode") {
           return {
-            value: 'FM'
+            value: "FM",
           };
         }
       },
       number: (val, ctx) => {
-        if (ctx.column == 'index') return {
-          value: '' + parseInt(val)
-        };
-        if (ctx.column == 'tone' || ctx.column == 'csvTone') {
+        if (ctx.column == "index")
+          return {
+            value: "" + parseInt(val),
+          };
+        if (ctx.column == "tone" || ctx.column == "csvTone") {
           if (ctx.index == 5) {
             return {
-              value: val ? 'TSQL' : ''
-            }
+              value: val ? "TSQL" : "",
+            };
           }
           if (ctx.index == 6 || ctx.index == 7) {
             return {
-              value: val ? val.toFixed(1) : parseFloat('79.7').toFixed(1)
+              value: val ? val.toFixed(1) : parseFloat("79.7").toFixed(1),
             };
           }
         }
         return {
-          value: val.toFixed(6)
-        }
+          value: val.toFixed(6),
+        };
       },
-    }
+    },
   });
-  const status = exportFile(fn, output, 'text/csv');
+  const status = exportFile(fn, output, "text/csv");
 }
 
 sidebarActive = false;
 activeForNearbyNodes = false;
 
-var map = L.map('map', {
+var map = L.map("map", {
   // closePopupOnClick: false
 }).setView([42.7249925, 25.4833039], 8);
 
-L.tileLayer('https://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors ' +
+L.tileLayer("https://{s}.tile.osm.org/{z}/{x}/{y}.png", {
+  attribution:
+    '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors ' +
     '| Инфо от <a href="http://repeaters.bg" target="_blank">repeaters.bg</a>, <a href="https://repeaters.lz1ny.net/" target="_blank">repeaters.lz1ny.net</a> и др. ' +
     '| <a href="https://paypal.me/dimitarmilkov" target="_blank">Дарение</a> ' +
     // '| <a href="https://forms.gle/qxetZjuKpmapVvCz9" target="_blank">Изпрати информация</a> ' +
-    '| <a href="#" onclick="doAlert(true);">Контакт</a>'
+    '| <a href="#" onclick="doAlert(true);">Контакт</a>',
 }).addTo(map);
 
-L.easyButton('fa-search', function () {
-  searchNode();
-}, 'Търсене на репитер').addTo(map);
+L.easyButton(
+  "fa-search",
+  function () {
+    searchNode();
+  },
+  "Търсене на репитер"
+).addTo(map);
 
 var geoButton = L.easyButton({
-  states: [{
-    stateName: 'default',
-    icon: 'fa-map-marker',
-    onClick: getLocation,
-    title: 'Покажи репитрите около мен'
-  }, {
-    stateName: 'wait',
-    icon: 'fa fa-spinner fa-spin',
-    title: 'Покажи репитрите около мен'
-  }],
+  states: [
+    {
+      stateName: "default",
+      icon: "fa-map-marker",
+      onClick: getLocation,
+      title: "Покажи репитрите около мен",
+    },
+    {
+      stateName: "wait",
+      icon: "fa fa-spinner fa-spin",
+      title: "Покажи репитрите около мен",
+    },
+  ],
 }).addTo(map);
 
-L.easyButton('fa-history', function () {
-  window.open('changelog.txt', '_blank', 'width=600, height=300');
-  doAlert(true);
-}, 'История на промените').addTo(map);
+L.easyButton(
+  "fa-history",
+  function () {
+    window.open("changelog.txt", "_blank", "width=600, height=300");
+    doAlert(true);
+  },
+  "История на промените"
+).addTo(map);
 
-L.easyButton('fa-info', function () {
-  doAlert(true);
-}, 'Информация').addTo(map);
+L.easyButton(
+  "fa-info",
+  function () {
+    doAlert(true);
+  },
+  "Информация"
+).addTo(map);
 
-
-var sidebar = L.control.sidebar('sidebar', {
-  position: 'left'
+var sidebar = L.control.sidebar("sidebar", {
+  position: "left",
 });
 
 map.addControl(sidebar);
@@ -415,57 +498,59 @@ map.addControl(sidebar);
 // 	}
 // }
 
-map.createPane('general');
+map.createPane("general");
 
 var markers = L.markerClusterGroup({
   spiderfyDistanceMultiplier: 4,
   iconCreateFunction: function (cluster) {
     var childCount = cluster.getChildCount();
 
-    var c = ' marker-cluster-';
+    var c = " marker-cluster-";
     if (childCount < 5) {
-      c += 'small';
+      c += "small";
     } else if (childCount < 10) {
-      c += 'medium';
+      c += "medium";
     } else {
-      c += 'large';
+      c += "large";
     }
 
     return new L.DivIcon({
-      html: '<div><span><b>' + childCount + '</b></span></div>',
-      className: 'marker-cluster' + c,
-      iconSize: new L.Point(40, 40)
+      html: "<div><span><b>" + childCount + "</b></span></div>",
+      className: "marker-cluster" + c,
+      iconSize: new L.Point(40, 40),
     });
-  }
+  },
 });
 
 const out = L.markerClusterGroup();
 map.addLayer(out);
 
 var HomeIcon = L.icon({
-  iconUrl: 'home.png',
-  iconSize: [24, 24]
+  iconUrl: "home.png",
+  iconSize: [24, 24],
 });
 
 var PinIcon = L.icon({
-  iconUrl: 'pin.png',
-  iconSize: [32, 32]
+  iconUrl: "pin.png",
+  iconSize: [32, 32],
 });
 
 var draggablePin = L.marker(new L.LatLng(42.779, 28.356), {
   draggable: true,
-  icon: PinIcon
+  icon: PinIcon,
 }).addTo(map);
 
-draggablePin.bindPopup('<p>Влачи това габърче до мястото,' +
-  ' за което искаш да видиш най-близките ретранслатори наоколо.</p>');
+draggablePin.bindPopup(
+  "<p>Влачи това габърче до мястото," +
+    " за което искаш да видиш най-близките ретранслатори наоколо.</p>"
+);
 
-draggablePin.on('dragend', function () {
+draggablePin.on("dragend", function () {
   var position = {
     coords: {
       latitude: draggablePin.getLatLng().lat,
-      longitude: draggablePin.getLatLng().lng
-    }
+      longitude: draggablePin.getLatLng().lng,
+    },
   };
   handlePosition(position, true);
 });
@@ -480,7 +565,7 @@ function doOverlay(image, LatStart, LngStart, LatEnd, LngEnd) {
     );
 
     var overlay = new L.ImageOverlay(image, bounds, {
-      pane: 'general',
+      pane: "general",
     });
     return overlay;
   }
@@ -495,7 +580,7 @@ function removeOverlay() {
   }
 }
 
-markers.on('popupopen', function (e) {
+markers.on("popupopen", function (e) {
   if (sidebar.isVisible() && activeForNearbyNodes === false) {
     sidebar.hide();
   }
@@ -512,7 +597,7 @@ markers.on('popupopen', function (e) {
     const m = e.popup._source;
 
     // AF: fix a stale coverage overlay, when the popup is auto-closed
-    m.on('remove', function (p) {
+    m.on("remove", function (p) {
       // map.closePopup();
       // m.closePopup();
       // p.target.togglePopup();
@@ -530,9 +615,9 @@ markers.on('popupopen', function (e) {
   }
 });
 
-markers.on('popupclose', removeOverlay);
+markers.on("popupclose", removeOverlay);
 
-out.on('popupclose', function (e) {
+out.on("popupclose", function (e) {
   removeOverlay();
   var m = e.popup._source;
   out.removeLayer(m);
@@ -540,12 +625,10 @@ out.on('popupclose', function (e) {
   m.closePopup();
 });
 
-
 // AF: when popup is opened, the cluster is unspiderfied, so we re-spiderfy it again
-markers.on('unspiderfied', function (a) {
+markers.on("unspiderfied", function (a) {
   a.markers.forEach(function (m) {
-    if (m.isPopupOpen())
-      a.cluster.spiderfy();
+    if (m.isPopupOpen()) a.cluster.spiderfy();
   });
 });
 
@@ -600,7 +683,7 @@ function searchLayers(name) {
   });
 
   if (!found) {
-    alert('Няма такъв ретранслатор на картата!');
+    alert("Няма такъв ретранслатор на картата!");
   }
 }
 
@@ -614,7 +697,7 @@ function searchNode(callsign) {
 }
 
 function clearHomeIfExists() {
-  if (typeof home !== 'undefined') {
+  if (typeof home !== "undefined") {
     map.removeLayer(home);
   }
 }
@@ -627,60 +710,100 @@ function setSidebar() {
   var popup = activeMarker.getPopup();
   var c = popup.getContent();
   var parser = new DOMParser();
-  var el = parser.parseFromString(c, 'text/html');
-  el.querySelectorAll('.remove-for-sidebar').forEach(e => e.parentNode.removeChild(e)); // remove the link to sidebar
-  var result = el.querySelector('.reptitle').innerHTML;
-  sidebar.setContent('<p>' + result + '</p>');
+  var el = parser.parseFromString(c, "text/html");
+  el.querySelectorAll(".remove-for-sidebar").forEach((e) =>
+    e.parentNode.removeChild(e)
+  ); // remove the link to sidebar
+  var result = el.querySelector(".reptitle").innerHTML;
+  sidebar.setContent("<p>" + result + "</p>");
   //map.closePopup();
   sidebar.show();
 }
 
-sidebar.on('show', function () {
+sidebar.on("show", function () {
   map.closePopup();
 });
 
-sidebar.on('hide', function () {
+sidebar.on("hide", function () {
   sidebarActive = false;
   activeForNearbyNodes = false;
   clearHomeIfExists();
   removeOverlay();
 });
 
-map.on('click', function () {
+map.on("click", function () {
   if (sidebar.isVisible()) {
     sidebar.hide();
   }
 });
 
 function getLocation() {
-  geoButton.state('wait');
+  geoButton.state("wait");
   geoButton.disable();
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(handlePosition, handleError);
   } else {
-    alert('Вашият браузър не поддържа услуги за локация!\nПроверете настройките му или го обновете.');
+    alert(
+      "Вашият браузър не поддържа услуги за локация!\nПроверете настройките му или го обновете."
+    );
   }
 }
 
 function handlePosition(position, fromPin) {
-  geoButton.state('default');
+  geoButton.state("default");
   geoButton.enable();
-  var currentPosition = L.latLng(position.coords.latitude, position.coords.longitude);
-  var closestPoints = L.GeometryUtil.nClosestLayers(map, markers.getLayers(), currentPosition, 5);
-  var nodesList = '<h3>Най-близките ретранслатори до вас:</h3>';
+  var currentPosition = L.latLng(
+    position.coords.latitude,
+    position.coords.longitude
+  );
+  var closestPoints = L.GeometryUtil.nClosestLayers(
+    map,
+    markers.getLayers(),
+    currentPosition,
+    5
+  );
+  var nodesList = "<h3>Най-близките ретранслатори до вас:</h3>";
   var c = 1;
 
   for (var i = 0; i < closestPoints.length; i++) {
     locDesc = closestPoints[i].layer.options.title;
-    locDesc = locDesc.substring(locDesc.indexOf(' - ') + 2);
-    distance = closestPoints[i].layer.getLatLng().distanceTo(currentPosition).toFixed(0) / 1000;
-    nodesList += c + ". <a href='#' onclick='window.overlay && map.removeLayer(overlay); window.overlay=null; map.closePopup(); searchLayers(\"" + closestPoints[i].layer.name + "\");'><b>" + closestPoints[i].layer.name + "</b></a>, " + locDesc + "<i><b> (" + distance.toFixed(2) + " км)</i></b><br/>";
+    locDesc = locDesc.substring(locDesc.indexOf(" - ") + 2);
+    distance =
+      closestPoints[i].layer
+        .getLatLng()
+        .distanceTo(currentPosition)
+        .toFixed(0) / 1000;
+    nodesList +=
+      c +
+      ". <a href='#' onclick='window.overlay && map.removeLayer(overlay); window.overlay=null; map.closePopup(); searchLayers(\"" +
+      closestPoints[i].layer.name +
+      "\");'><b>" +
+      closestPoints[i].layer.name +
+      "</b></a>, " +
+      locDesc +
+      "<i><b> (" +
+      distance.toFixed(2) +
+      " км)</i></b><br/>";
     c++;
   }
 
-  nodesList += "<br /><hr><i>Вашите координати: " + position.coords.latitude.toFixed(5) + ", " + position.coords.longitude.toFixed(5) +
-    "<br/>QTH локатор: " + L.Maidenhead.latLngToIndex(parseFloat(position.coords.latitude.toFixed(5)), parseFloat(position.coords.longitude.toFixed(5)), 6).toUpperCase() + "</i>" +
-    "<br/><a href='?coords=" + position.coords.latitude.toFixed(5) + "," + position.coords.longitude.toFixed(5) + "' target='_blank' style='text-decoration:none; float: right;'><i class='fa-solid fa-link'></i> Вземи линк</a>";
+  nodesList +=
+    "<br /><hr><i>Вашите координати: " +
+    position.coords.latitude.toFixed(5) +
+    ", " +
+    position.coords.longitude.toFixed(5) +
+    "<br/>QTH локатор: " +
+    L.Maidenhead.latLngToIndex(
+      parseFloat(position.coords.latitude.toFixed(5)),
+      parseFloat(position.coords.longitude.toFixed(5)),
+      6
+    ).toUpperCase() +
+    "</i>" +
+    "<br/><a href='?coords=" +
+    position.coords.latitude.toFixed(5) +
+    "," +
+    position.coords.longitude.toFixed(5) +
+    "' target='_blank' style='text-decoration:none; float: right;'><i class='fa-solid fa-link'></i> Вземи линк</a>";
 
   //if (typeof home == 'undefined') {
   clearHomeIfExists();
@@ -688,13 +811,16 @@ function handlePosition(position, fromPin) {
   if (!fromPin) {
     navigator.vibrate([100, 100, 150]);
     home = L.marker(currentPosition, {
-      icon: HomeIcon
+      icon: HomeIcon,
     }).addTo(map);
-    home.bindTooltip('Твоето местоположение');
+    home.bindTooltip("Твоето местоположение");
     map.setView(currentPosition, 25);
   } else {
     map.setView(currentPosition, map.getZoom());
-    nodesList = nodesList.replace("<hr>", "<hr><img src=\"pin.png\" width=\"25\" height=\"25\">");
+    nodesList = nodesList.replace(
+      "<hr>",
+      '<hr><img src="pin.png" width="25" height="25">'
+    );
   }
   /*} else {
   map.setView(home.getLatLng(), 25);
@@ -707,11 +833,13 @@ function handlePosition(position, fromPin) {
 
 function handleError(error) {
   if (error.code == error.PERMISSION_DENIED) {
-    alert('Моля, позволете на браузъра си да ни предостави текущата ви локация.');
+    alert(
+      "Моля, позволете на браузъра си да ни предостави текущата ви локация."
+    );
   } else {
-    alert('Възникна проблем с извличането на локацията.')
+    alert("Възникна проблем с извличането на локацията.");
   }
-  geoButton.state('default');
+  geoButton.state("default");
   geoButton.enable();
 }
 
@@ -736,4 +864,51 @@ markers.on('animationend', function (e) {
 */
 
 //document.getElementById("box").addEventListener("click", handleBox, false);
-;
+var formatedResults = null;
+var searchbox = L.control
+  .searchbox({
+    position: "topright",
+    expand: "left",
+    width: "15em",
+    autocompleteFeatures: ["setValueOnClick"],
+  })
+  .addTo(map);
+
+searchbox.onInput("keyup", function (e) {
+  if (e.keyCode == 13) {
+    search();
+  } else {
+    var value = searchbox.getValue();
+    if (value != "") {
+      var results = fuseSearch.search(value);
+      formatedResults = results.map(
+        (res) =>
+          `📡 | ${res.item.callsign} | ${res.item.loc} | RX:${res.item.rx} | TX:${res.item.tx}`
+      );
+      searchbox.setItems(formatedResults);
+    } else {
+      searchbox.clearItems();
+      formatedResults = null;
+    }
+  }
+});
+
+function search() {
+  var value = searchbox.getValue();
+  if (value != "") {
+    if (value.includes("📡 |")) {
+      searchLayers(value.split("|")[1].trim());
+    } else {
+      if (formatedResults && formatedResults.length) {
+        searchLayers(formatedResults[0].split("|")[1].trim());
+      }
+    }
+  }
+  setTimeout(function () {
+    searchbox.hide();
+    searchbox.clear();
+  }, 600);
+}
+
+searchbox.onButton("click", search);
+searchbox.onAutocomplete("click", search);
